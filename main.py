@@ -1,17 +1,18 @@
-import datetime
 import os
+import datetime
 from forexconnect import ForexConnect
+from dotenv import load_dotenv
 from utils import session_status_changed
 from historical_data import fetch_historical_data
-from visualization import analyze_and_visualize_candlesticks
-from dotenv import load_dotenv
+from analysis import identify_fvgs
+from visualisation import visualize_with_fvgs
 
-# Загрузка переменных из .env файла
+# Загрузка переменных окружения из .env
 load_dotenv()
 
 def main():
     try:
-        # Чтение конфигурации из .env
+        # Получение конфигурации из .env
         user_id = os.getenv("USER_ID")
         password = os.getenv("PASSWORD")
         url = os.getenv("URL")
@@ -25,17 +26,24 @@ def main():
             fx.login(user_id, password, url, connection, session_status_callback=session_status_changed)
             print("Login successful")
 
-            # Настройки
+            # Параметры для получения данных
             instrument = "EUR/USD"
-            time_frame = "H4"
-            start_time = datetime.datetime.strptime("07.01.2023 00:00:00", "%d.%m.%Y %H:%M:%S")
-            end_time = datetime.datetime.strptime("05.01.2024 12:00:00", "%d.%m.%Y %H:%M:%S")
+            time_frame = "H1"
+            start_time = datetime.datetime.strptime("01.01.2023 00:00:00", "%d.%m.%Y %H:%M:%S")
+            end_time = datetime.datetime.strptime("01.02.2023 00:00:00", "%d.%m.%Y %H:%M:%S")
 
             # Получение исторических данных
-            history = fetch_historical_data(fx, instrument, time_frame, start_time, end_time)
+            historical_data = fetch_historical_data(fx, instrument, time_frame, start_time, end_time)
+            print("Historical data fetched successfully.")
 
-            # Анализ и визуализация
-            analyze_and_visualize_candlesticks(history, instrument, time_frame)
+            # Анализ FVG
+            fvgs = identify_fvgs(historical_data)
+            print(f"Found {len(fvgs)} FVG patterns.")
+            print(fvgs.head())
+
+            # Визуализация
+            visualize_with_fvgs(historical_data, fvgs, instrument)
+            print("Visualization completed.")
 
             # Логаут
             fx.logout()

@@ -1,75 +1,73 @@
 import pandas as pd
-import mplfinance as mpf
-from utils import time_frame_to_hours
-import datetime
 
-def analyze_and_visualize_candlesticks(fx, instrument, time_frame, start_time, end_time):
-    try:
-        # Получаем исторические данные
-        history = fx.get_history(
-            instrument, time_frame,
-            start_time.replace(tzinfo=datetime.timezone.utc),
-            end_time.replace(tzinfo=datetime.timezone.utc)
-        )
 
-        # Преобразуем данные в DataFrame
-        data = pd.DataFrame(history)
+def detect_time_column(df):
+    """
+    Определяет столбец или индекс, содержащий временные данные.
+    """
+    # Проверяем, есть ли индекс с временными метками
+    if isinstance(df.index, pd.DatetimeIndex):
+        return "index"
 
-        # Преобразуем столбец Date в формат datetime и устанавливаем как индекс
-        data['Date'] = pd.to_datetime(data['Date'])
-        data.set_index('Date', inplace=True)
+    # Проверяем столбцы
+    for col in df.columns:
+        if 'time' in col.lower() or 'date' in col.lower():
+            return col
 
-        # Переименовываем колонки в формат, который ожидает mplfinance
-        data.rename(columns={
-            'BidOpen': 'Open',
-            'BidHigh': 'High',
-            'BidLow':  'Low',
-            'BidClose': 'Close'
-        }, inplace=True)
+    return None
 
-        # Анализ паттерна "бычье поглощение" (ордер блок)
-        data['PrevOpen'] = data['Open'].shift(1)
-        data['PrevClose'] = data['Close'].shift(1)
-        data['BullishEngulfing'] = (
-            (data['PrevClose'] < data['PrevOpen']) &  # Предыдущая свеча медвежья
-            (data['Close'] > data['Open']) &          # Текущая свеча бычья
-            (data['Open'] <= data['PrevClose']) &     # Тело текущей свечи начинается ниже или на уровне закрытия предыдущей
-            (data['Close'] >= data['PrevOpen'])       # Тело текущей свечи закрывается выше или на уровне открытия предыдущей
-        )
 
-        # Создаем линии для ордер блоков
-        alines = []
-        line_offset = pd.Timedelta(hours=24)  # Смещение для длины линии вправо
-        for date in data.index[data['BullishEngulfing']]:
-            prev_close = data.loc[date - pd.Timedelta(hours=time_frame_to_hours(time_frame)), 'Close']
-            if date + line_offset <= data.index[-1]:  # Проверка, что дата линии в пределах диапазона
-                alines.append((
-                    (date, prev_close),
-                    (date + line_offset, prev_close)
-                ))
+def identify_fvgs(df):
+    """
+    Определяет FVG (Fair Value Gap) в предоставленных данных.
+    """
+    time_column = detect_time_column(df)
 
-        # Настраиваем цвета свечей
-        mc = mpf.make_marketcolors(
-            up='white', down='black', edge='black', wick='black', volume='inherit'
-        )
+    if time_column == "index":
+        df = df.reset_index()
+        time_column = "Date"  # После сброса индекса столбец времени называется "Date"
 
-        # Создаем собственный стиль
-        my_style = mpf.make_mpf_style(
-            base_mpf_style='yahoo', marketcolors=mc, rc={"axes.grid": False}
-        )
+    if not time_column:
+        raise ValueError("The data does not contain a recognizable time column.")
 
-        # Визуализация японских свечей с линиями ордер блоков
-        mpf.plot(
-            data,
-            type='candle',
-            style=my_style,
-            title=f'Japanese Candlesticks for {instrument}',
-            ylabel='Price',
-            alines=dict(alines=alines, colors=['green'], linestyle='dashed'),
-            figratio=(16, 9),
-            figscale=1.2,
-            volume=False
-        )
+    df.rename(columns={time_column: 'Open Time'}, inplace=True)
 
-    except Exception as e:
-        print("Error during analysis or visualization: " + str(e))
+    # Переименовываем столбцы, чтобы соответствовать ожидаемым названиям
+    df.rename(columns={
+        'BidOpen': 'Open',
+        'BidHigh': 'High',
+        'BidLow': 'Low',
+        'BidClose': 'Close'
+    }, inplace=True)
+
+    fvgs = []
+    df = df.sort_values(by='Open Time').reset_index(drop=True)
+    df['Volume Before'] = df['Volume'].shift(-1)
+    df['Volume After'] = df['Volume'].shift(1)
+
+    for i in range(2, len(df) - 2):
+        two_bars_ago = df.iloc[i - 2]
+        current_row = df.iloc[i]
+
+        # Bullish FVG
+        if current_row['Low'] > two_bars_ago['High']:
+            fvgs.append({
+                'Start Time': two_bars_ago['Open Time'],
+                'End Time': current_row['Open Time'],
+                'Start Price': two_bars_ago['High'],
+                'End Price': current_row['Low'],
+                'Type': 'Bullish FVG'
+            })
+
+        # Bearish FVG
+        elif current_row['High'] < two_bars_ago['Low']:
+            fvgs.append({
+                'Start Time': two_bars_ago['Open Time'],
+                'End Time': current_row['Open Time'],
+                'Start Price': two_bars_ago['Low'],
+                'End Price': current_row['High'],
+                'Type': 'Bearish FVG'
+            })
+
+    return pd.DataFrame(fvgs)
+
