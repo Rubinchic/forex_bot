@@ -1,6 +1,7 @@
 import pandas as pd
 import mplfinance as mpf
 from utils import time_frame_to_hours
+import datetime
 
 def analyze_and_visualize_candlesticks(fx, instrument, time_frame, start_time, end_time):
     try:
