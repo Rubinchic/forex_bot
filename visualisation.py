@@ -1,62 +1,62 @@
 import mplfinance as mpf
-from analysis import detect_time_column
 
-
-def visualize_with_fvgs(data, fvgs, instrument):
+def visualize_with_fvgs_and_trades(data, fvgs, trades, instrument):
     """
-    Визуализирует данные свечей с отображением FVG.
+    Визуализирует данные свечей с отображением FVG и сделок на одном графике.
     """
     try:
-        time_column = detect_time_column(data)
-
-        if time_column == "index":
-            data = data.reset_index()
-            time_column = "Date"  # После сброса индекса столбец времени называется "Date"
-
-        if not time_column:
-            raise ValueError("The data does not contain a recognizable time column.")
-
-        data.rename(columns={time_column: 'Open Time'}, inplace=True)
-
-        # Подготовка данных для mplfinance
-        data.rename(columns={
-            'BidOpen': 'Open',
-            'BidHigh': 'High',
-            'BidLow': 'Low',
-            'BidClose': 'Close'
-        }, inplace=True)
-        data.set_index('Open Time', inplace=True)
-
-        # Подготовка FVG линий
+        # Формирование линий FVG
         alines = []
         for _, row in fvgs.iterrows():
-            # Верхняя граница FVG
-            alines.append((
-                (row['Start Time'], row['Start Price']),
-                (row['End Time'], row['Start Price'])
-            ))
-            # Нижняя граница FVG
-            alines.append((
-                (row['Start Time'], row['End Price']),
-                (row['End Time'], row['End Price'])
-            ))
+            alines.append(((row['Start Time'], row['Start Price']), (row['End Time'], row['Start Price'])))
+            alines.append(((row['Start Time'], row['End Price']), (row['End Time'], row['End Price'])))
 
-        # Настройка стиля графика
+        # Формирование точек сделок
+        addplots = []
+        for trade in trades:
+            entry_time = trade['Entry Time']
+            entry_price = trade['Entry Price']
+            take_profit = trade['Take Profit']
+            stop_loss = trade['Stop Loss']
+            result = trade['Result']
+
+            color = 'green' if result == 'Win' else 'red'
+            marker = '^' if trade['Type'] == 'long' else 'v'
+
+            # Создание данных для точек
+            entry_y = [entry_price if idx == entry_time else float('nan') for idx in data.index]
+            tp_y = [take_profit if idx == entry_time else float('nan') for idx in data.index]
+            sl_y = [stop_loss if idx == entry_time else float('nan') for idx in data.index]
+
+            # Добавление точек
+            addplots.append(mpf.make_addplot(entry_y, scatter=True, markersize=100, marker=marker, color=color))
+            addplots.append(mpf.make_addplot(tp_y, scatter=True, markersize=50, marker='_', color='blue'))
+            addplots.append(mpf.make_addplot(sl_y, scatter=True, markersize=50, marker='_', color='orange'))
+
+        # Настройка графика
         mc = mpf.make_marketcolors(up='white', down='black', edge='black', wick='black', volume='inherit')
         style = mpf.make_mpf_style(base_mpf_style='yahoo', marketcolors=mc, rc={"axes.grid": False})
 
-        # Построение графика с FVG линиями
+        # Построение графика
         mpf.plot(
             data,
             type='candle',
             style=style,
-            title=f'{instrument} with FVG Patterns',
+            title=f"{instrument} - FVG and Trades",
             ylabel='Price',
-            alines=dict(alines=alines, colors=['red', 'blue'], linestyle='dotted'),
             figratio=(16, 9),
             figscale=1.2,
-            volume=False
+            volume=False,
+            alines=dict(alines=alines, colors=['red', 'blue'], linestyle='dotted'),
+            addplot=addplots
         )
+
+        # Легенда
+        print("\nExplanation of markers:")
+        print("^ (green): Entry point of a winning trade")
+        print("^ (red): Entry point of a losing trade")
+        print("_ (blue): Take profit level")
+        print("_ (orange): Stop loss level")
 
     except Exception as e:
         print(f"Error during visualization: {e}")

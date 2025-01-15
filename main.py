@@ -1,18 +1,19 @@
 import os
 import datetime
+import pandas as pd
 from forexconnect import ForexConnect
 from dotenv import load_dotenv
 from utils import session_status_changed
 from historical_data import fetch_historical_data
 from analysis import identify_fvgs
-from visualisation import visualize_with_fvgs
+from visualisation import visualize_with_fvgs_and_trades
+from trading import analyze_trades_with_fvg
 
 # Загрузка переменных окружения из .env
 load_dotenv()
 
 def main():
     try:
-        # Получение конфигурации из .env
         user_id = os.getenv("USER_ID")
         password = os.getenv("PASSWORD")
         url = os.getenv("URL")
@@ -22,36 +23,47 @@ def main():
             raise ValueError("Some required environment variables are missing. Please check your .env file.")
 
         with ForexConnect() as fx:
-            # Авторизация
             fx.login(user_id, password, url, connection, session_status_callback=session_status_changed)
             print("Login successful")
 
-            # Параметры для получения данных
             instrument = "EUR/USD"
-            time_frame = "H1"
+            time_frame = ["m15", "m30", "H1", "H4", "D1"]
             start_time = datetime.datetime.strptime("01.01.2023 00:00:00", "%d.%m.%Y %H:%M:%S")
-            end_time = datetime.datetime.strptime("01.02.2023 00:00:00", "%d.%m.%Y %H:%M:%S")
+            end_time = datetime.datetime.strptime("01.01.2025 00:00:00", "%d.%m.%Y %H:%M:%S")
 
             # Получение исторических данных
-            historical_data = fetch_historical_data(fx, instrument, time_frame, start_time, end_time)
-            print("Historical data fetched successfully.")
+            for i in time_frame:
+                historical_data = fetch_historical_data(fx, instrument, i, start_time, end_time)
+                print("Historical data fetched successfully.")
 
-            # Анализ FVG
-            fvgs = identify_fvgs(historical_data)
-            print(f"Found {len(fvgs)} FVG patterns.")
-            print(fvgs.head())
+                # Переименование столбцов
+                historical_data.rename(columns={
+                    'BidOpen': 'Open',
+                    'BidHigh': 'High',
+                    'BidLow': 'Low',
+                    'BidClose': 'Close'
+                }, inplace=True)
 
-            # Визуализация
-            visualize_with_fvgs(historical_data, fvgs, instrument)
-            print("Visualization completed.")
+                # Анализ FVG
+                fvgs = identify_fvgs(historical_data)
+                print(f"\n\nFor time frame: {i}\n")
+                print(f"Found {len(fvgs)} FVG patterns.")
 
-            # Логаут
+                # Анализ сделок
+                trades, trade_results = analyze_trades_with_fvg(historical_data, fvgs)
+                print("Trade analysis completed.")
+                print(f"Total Trades: {trade_results['Total Trades']}")
+                print(f"Winrate: {trade_results['Winrate (%)']:.2f}%")
+                print(f"Final Balance: {trade_results['Final Balance (%)']:.2f}%")
+
+            # Визуализация FVG и сделок
+           # visualize_with_fvgs_and_trades(historical_data, fvgs, trades, instrument)
+
             fx.logout()
             print("Logged out successfully")
 
     except Exception as e:
         print(f"An error occurred: {e}")
-
 
 if __name__ == "__main__":
     main()
