@@ -30,9 +30,15 @@ def visualize_with_fvgs(data, fvgs, instrument):
         # Подготовка FVG линий
         alines = []
         for _, row in fvgs.iterrows():
+            # Верхняя граница FVG
             alines.append((
                 (row['Start Time'], row['Start Price']),
                 (row['End Time'], row['Start Price'])
+            ))
+            # Нижняя граница FVG
+            alines.append((
+                (row['Start Time'], row['End Price']),
+                (row['End Time'], row['End Price'])
             ))
 
         # Настройка стиля графика
@@ -46,7 +52,7 @@ def visualize_with_fvgs(data, fvgs, instrument):
             style=style,
             title=f'{instrument} with FVG Patterns',
             ylabel='Price',
-            alines=dict(alines=alines, colors=['red'], linestyle='dotted'),
+            alines=dict(alines=alines, colors=['red', 'blue'], linestyle='dotted'),
             figratio=(16, 9),
             figscale=1.2,
             volume=False
