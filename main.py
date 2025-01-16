@@ -12,6 +12,7 @@ from trading import analyze_trades_with_fvg
 # Загрузка переменных окружения из .env
 load_dotenv()
 
+
 def main():
     try:
         user_id = os.getenv("USER_ID")
@@ -27,8 +28,8 @@ def main():
             print("Login successful")
 
             instrument = "EUR/USD"
-            time_frame = ["m15", "m30", "H1", "H4", "D1"]
-            start_time = datetime.datetime.strptime("01.01.2023 00:00:00", "%d.%m.%Y %H:%M:%S")
+            time_frame = ["D1"]
+            start_time = datetime.datetime.strptime("01.01.2020 00:00:00", "%d.%m.%Y %H:%M:%S")
             end_time = datetime.datetime.strptime("01.01.2025 00:00:00", "%d.%m.%Y %H:%M:%S")
 
             # Получение исторических данных
@@ -64,6 +65,7 @@ def main():
 
     except Exception as e:
         print(f"An error occurred: {e}")
+
 
 if __name__ == "__main__":
     main()

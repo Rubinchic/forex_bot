@@ -1,4 +1,7 @@
-forexconnect==1.6.1   # Версия зависит от вашей текущей установки
-mplfinance==0.12.9b7  # Последняя стабильная версия
-python-dotenv==1.0.0  # Для работы с файлом .env
-pandas==2.0.3         # Для работы с данными
+forexconnect~=1.6.43
+mplfinance~=0.12.10b0
+python-dotenv~=1.0.1
+pandas~=2.2.3
+
+utils~=1.0.1
+tqdm~=4.67.1

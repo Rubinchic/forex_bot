@@ -1,6 +1,6 @@
 import pandas as pd
 import datetime
-from forexconnect import fxcorepy, ForexConnect
+from forexconnect import ForexConnect
 
 
 def fetch_historical_data(fx: ForexConnect, instrument: str, time_frame: str, start_time: datetime.datetime, end_time: datetime.datetime):
@@ -16,19 +16,24 @@ def fetch_historical_data(fx: ForexConnect, instrument: str, time_frame: str, st
         )
 
         # Форматирование данных в DataFrame
-        data = []
-        for row in history:
-            data.append({
+        data = [
+            {
                 "Date": pd.to_datetime(str(row['Date'])),
                 "BidOpen": row['BidOpen'],
                 "BidHigh": row['BidHigh'],
                 "BidLow": row['BidLow'],
                 "BidClose": row['BidClose'],
                 "Volume": row['Volume']
-            })
+            }
+            for row in history
+        ]
 
         df = pd.DataFrame(data)
         df.set_index("Date", inplace=True)
+
+        # Предварительная фильтрация данных
+        if len(df) == 0:
+            raise ValueError("No data fetched for the given parameters.")
         return df
 
     except Exception as e:
