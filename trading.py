@@ -2,7 +2,7 @@ import pandas as pd
 from tqdm import tqdm
 
 
-def analyze_trades_with_fvg(data, fvgs, initial_balance=100, stop_loss_tick=0.001, take_profit_tick=0.003):
+def analyze_trades_with_fvg(data, fvgs, initial_balance=100, stop_loss_tick=0.001, take_profit_tick=0.002):
     """
     Оптимизированный анализ торговли с прогресс-баром.
     :param data: DataFrame с данными свечей.

@@ -28,8 +28,8 @@ def main():
             print("Login successful")
 
             instrument = "EUR/USD"
-            time_frame = ["D1"]
-            start_time = datetime.datetime.strptime("01.01.2020 00:00:00", "%d.%m.%Y %H:%M:%S")
+            time_frame = ["m1"]
+            start_time = datetime.datetime.strptime("01.01.2021 00:00:00", "%d.%m.%Y %H:%M:%S")
             end_time = datetime.datetime.strptime("01.01.2025 00:00:00", "%d.%m.%Y %H:%M:%S")
 
             # Получение исторических данных
