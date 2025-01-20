@@ -60,3 +60,48 @@ def visualize_with_fvgs_and_trades(data, fvgs, trades, instrument):
 
     except Exception as e:
         print(f"Error during visualization: {e}")
+
+    pass
+
+def visualize_with_fractals(data, fractals, instrument):
+    """
+    Визуализирует данные свечей с отображением фракталов.
+    """
+    try:
+        # Формирование точек для фракталов
+        addplots = []
+        for _, fractal in fractals.iterrows():
+            time = fractal['Time']
+            price = fractal['Price']
+            marker = 'v' if fractal['Type'] == 'High' else '^'
+
+            # Добавляем точки для каждого фрактала
+            fractal_y = [price if idx == time else float('nan') for idx in data.index]
+            addplots.append(
+                mpf.make_addplot(fractal_y, scatter=True, markersize=50, marker=marker, color='black')
+            )
+
+        # Настройка стиля графика
+        mc = mpf.make_marketcolors(up='white', down='black', edge='black', wick='black', volume='inherit')
+        style = mpf.make_mpf_style(base_mpf_style='yahoo', marketcolors=mc, rc={"axes.grid": False})
+
+        # Построение графика
+        mpf.plot(
+            data,
+            type='candle',
+            style=style,
+            title=f"{instrument} - Fractals",
+            ylabel='Price',
+            figratio=(16, 9),
+            figscale=1.2,
+            volume=False,
+            addplot=addplots
+        )
+
+        # Легенда
+        print("\nExplanation of markers:")
+        print("v (black): Fractal High")
+        print("^ (black): Fractal Low")
+
+    except Exception as e:
+        print(f"Error during visualization: {e}")
