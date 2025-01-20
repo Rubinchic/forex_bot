@@ -28,37 +28,48 @@ def main():
             print("Login successful")
 
             instrument = "EUR/USD"
-            time_frame = ["m1"]
-            start_time = datetime.datetime.strptime("01.01.2021 00:00:00", "%d.%m.%Y %H:%M:%S")
-            end_time = datetime.datetime.strptime("01.01.2025 00:00:00", "%d.%m.%Y %H:%M:%S")
+            time_frame = "D1"
+            start_time = "2022-01-01"
+            end_time = "2025-01-01"
+
+            start_time_dt = datetime.datetime.strptime(start_time, "%Y-%m-%d")
+            end_time_dt = datetime.datetime.strptime(end_time, "%Y-%m-%d")
 
             # Получение исторических данных
-            for i in time_frame:
-                historical_data = fetch_historical_data(fx, instrument, i, start_time, end_time)
-                print("Historical data fetched successfully.")
+            historical_data = fetch_historical_data(fx, instrument, time_frame, start_time_dt, end_time_dt)
+            print("Historical data fetched successfully.")
 
-                # Переименование столбцов
-                historical_data.rename(columns={
-                    'BidOpen': 'Open',
-                    'BidHigh': 'High',
-                    'BidLow': 'Low',
-                    'BidClose': 'Close'
-                }, inplace=True)
+            # Переименование столбцов для совместимости
+            historical_data.rename(columns={
+                'BidOpen': 'Open',
+                'BidHigh': 'High',
+                'BidLow': 'Low',
+                'BidClose': 'Close'
+            }, inplace=True)
 
-                # Анализ FVG
-                fvgs = identify_fvgs(historical_data)
-                print(f"\n\nFor time frame: {i}\n")
-                print(f"Found {len(fvgs)} FVG patterns.")
+            # Проверка наличия необходимых столбцов
+            required_columns = ['Open', 'High', 'Low', 'Close']
+            for column in required_columns:
+                if column not in historical_data.columns:
+                    raise ValueError(f"Missing required column: {column}")
 
-                # Анализ сделок
-                trades, trade_results = analyze_trades_with_fvg(historical_data, fvgs)
-                print("Trade analysis completed.")
-                print(f"Total Trades: {trade_results['Total Trades']}")
-                print(f"Winrate: {trade_results['Winrate (%)']:.2f}%")
-                print(f"Final Balance: {trade_results['Final Balance (%)']:.2f}%")
+            # Анализ FVG
+            fvgs = identify_fvgs(historical_data)
+            print(f"Found {len(fvgs)} FVG patterns.")
+
+            # Анализ сделок
+            trades, trade_results = analyze_trades_with_fvg(
+                historical_data, fvgs,
+                time_frame=time_frame, start_time=start_time, end_time=end_time
+            )
+            print("Trade analysis completed.")
+            print(f"Total Trades: {trade_results['Total Trades']}")
+            print(f"Winrate: {trade_results['Winrate (%)']:.2f}%")
+            print(f"Final Balance: {trade_results['Final Balance (%)']:.2f}%")
+            print(f"Max Consecutive Losses: {trade_results['Max Consecutive Losses']}")
 
             # Визуализация FVG и сделок
-           # visualize_with_fvgs_and_trades(historical_data, fvgs, trades, instrument)
+            #visualize_with_fvgs_and_trades(historical_data, fvgs, trades, instrument)
 
             fx.logout()
             print("Logged out successfully")

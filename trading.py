@@ -1,21 +1,24 @@
 import pandas as pd
 from tqdm import tqdm
+import datetime
 
 
-def analyze_trades_with_fvg(data, fvgs, initial_balance=100, stop_loss_tick=0.001, take_profit_tick=0.002):
+def analyze_trades_with_fvg(data, fvgs, initial_balance=100, stop_loss_tick=0.001, take_profit_tick=0.003, time_frame="", start_time="", end_time=""):
     """
-    Оптимизированный анализ торговли с прогресс-баром.
-    :param data: DataFrame с данными свечей.
-    :param fvgs: DataFrame с FVG.
-    :param initial_balance: Начальный баланс.
-    :param stop_loss_tick: Стоп-лосс в тиках от цены входа.
-    :param take_profit_tick: Тейк-профит в тиках от цены входа.
-    :return: Список сделок и статистика.
+    Анализирует торговлю на основе FVG и возвращает статистику.
     """
+    # Проверка наличия необходимых столбцов
+    required_columns = ['Open', 'High', 'Low', 'Close']
+    for column in required_columns:
+        if column not in data.columns:
+            raise ValueError(f"Missing required column: {column}")
+
     balance = initial_balance
     trades = []
     win_count = 0
     loss_count = 0
+    max_consecutive_losses = 0
+    current_losses = 0
 
     risk_reward = round(take_profit_tick / stop_loss_tick, 2)
 
@@ -23,29 +26,27 @@ def analyze_trades_with_fvg(data, fvgs, initial_balance=100, stop_loss_tick=0.00
     data_dict = data.to_dict(orient="index")
 
     for _, fvg in tqdm(fvgs.iterrows(), total=len(fvgs), desc="Analyzing trades"):
-        end_time = fvg['End Time']
+        end_time_fvg = fvg['End Time']
 
-        if end_time not in data.index:
+        if end_time_fvg not in data.index:
             continue
 
-        # Получаем индекс и следующую свечу
-        entry_idx = data.index.get_loc(end_time) + 1
+        entry_idx = data.index.get_loc(end_time_fvg) + 1
         if entry_idx >= len(data):
             continue
 
         entry_time = data.index[entry_idx]
-        entry_data = data_dict[entry_time]
-        entry_price = entry_data['Open']
+        entry_price = data_dict[entry_time]['Open']
         trade_type = 'short' if fvg['Start Price'] > fvg['End Price'] else 'long'
         take_profit = entry_price + take_profit_tick if trade_type == 'long' else entry_price - take_profit_tick
         stop_loss = entry_price - stop_loss_tick if trade_type == 'long' else entry_price + stop_loss_tick
 
-        result, closing_price = None, None
+        result = None
+        closing_price = None
 
         for i in range(entry_idx, len(data)):
-            current_data = data_dict[data.index[i]]
-            high_price = current_data['High']
-            low_price = current_data['Low']
+            high_price = data_dict[data.index[i]]['High']
+            low_price = data_dict[data.index[i]]['Low']
 
             if trade_type == 'long':
                 if high_price >= take_profit:
@@ -71,11 +72,14 @@ def analyze_trades_with_fvg(data, fvgs, initial_balance=100, stop_loss_tick=0.00
 
         profit_loss = abs(closing_price - entry_price) * 1000
         if result == 'Win':
-            balance += profit_loss
             win_count += 1
+            balance += profit_loss
+            current_losses = 0
         else:
-            balance -= profit_loss
             loss_count += 1
+            balance -= profit_loss
+            current_losses += 1
+            max_consecutive_losses = max(max_consecutive_losses, current_losses)
 
         trades.append({
             'Entry Time': entry_time,
@@ -87,7 +91,8 @@ def analyze_trades_with_fvg(data, fvgs, initial_balance=100, stop_loss_tick=0.00
             'Result': result,
             'Profit/Loss': round(profit_loss, 2),
             'Balance': round(balance, 2),
-            'Risk-Reward': risk_reward
+            'Risk-Reward': risk_reward,
+            'Max Consecutive Losses': max_consecutive_losses
         })
 
     total_trades = win_count + loss_count
@@ -95,11 +100,16 @@ def analyze_trades_with_fvg(data, fvgs, initial_balance=100, stop_loss_tick=0.00
     final_balance_percent = ((balance - initial_balance) / initial_balance) * 100
 
     trades_df = pd.DataFrame(trades)
-    trades_df.to_csv('trade_results.csv', index=False)
+
+    # Сохранение результата в файл с уникальным именем
+    current_datetime = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+    filename = f"{time_frame}_{start_time}_{end_time}_{current_datetime}.csv"
+    trades_df.to_csv(filename, index=False)
 
     return trades, {
         'Total Trades': total_trades,
         'Winrate (%)': winrate,
         'Final Balance (%)': final_balance_percent,
-        'Risk-Reward': risk_reward
+        'Risk-Reward': risk_reward,
+        'Max Consecutive Losses': max_consecutive_losses
     }
