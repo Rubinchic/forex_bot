@@ -5,7 +5,7 @@ from forexconnect import ForexConnect
 from dotenv import load_dotenv
 from utils import session_status_changed
 from historical_data import fetch_historical_data
-from analysis import identify_fvgs, identify_fractals
+from analysis import identify_fvgs, identify_fractals, identify_bos_and_trend
 from visualisation import visualize_with_fvgs_and_trades, visualize_with_fractals
 from trading import analyze_trades_with_fvg
 
@@ -41,6 +41,10 @@ def main():
             historical_data = fetch_historical_data(fx, instrument, time_frame, start_time_dt, end_time_dt)
             print("Historical data fetched successfully.")
 
+            if historical_data.empty:
+                print("Error: No historical data fetched.")
+                return
+
             # Переименование столбцов
             historical_data.rename(columns={
                 'BidOpen': 'Open',
@@ -57,6 +61,10 @@ def main():
             fractals = identify_fractals(historical_data)
             print(f"Found {len(fractals)} fractals.")
 
+            # Анализ линий BOS и тренда
+            bos_lines, trend = identify_bos_and_trend(historical_data, fractals)
+            print(f"Current Trend: {trend}")
+
             # Анализ сделок
             trades, trade_results = analyze_trades_with_fvg(
                 historical_data, fvgs,
@@ -69,7 +77,7 @@ def main():
             print(f"Max Consecutive Losses: {trade_results['Max Consecutive Losses']}")
 
             # Визуализация
-           # visualize_with_fvgs_and_trades(historical_data, fvgs, trades, instrument)
+            #visualize_with_fvgs_and_trades(historical_data, fvgs, trades, instrument)
             visualize_with_fractals(historical_data, fractals, instrument)
 
             # Завершение сессии
@@ -78,6 +86,7 @@ def main():
 
     except Exception as e:
         print(f"An error occurred: {e}")
+
 
 if __name__ == "__main__":
     main()

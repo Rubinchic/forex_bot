@@ -1,5 +1,6 @@
 import pandas as pd
 
+
 def detect_time_column(df):
     """
     Определяет столбец или индекс, содержащий временные данные.
@@ -10,6 +11,7 @@ def detect_time_column(df):
         if 'time' in col.lower() or 'date' in col.lower():
             return col
     return None
+
 
 def identify_fvgs(df):
     """
@@ -60,6 +62,7 @@ def identify_fvgs(df):
 
     return pd.DataFrame(fvgs)
 
+
 def identify_fractals(data):
     """
     Идентифицирует фракталы (Fractal High и Fractal Low) в данных свечей с учетом 3 свечей.
@@ -79,3 +82,50 @@ def identify_fractals(data):
             fractals.append({'Time': curr.name, 'Type': 'Low', 'Price': curr['Low'] - 0.0005})
 
     return pd.DataFrame(fractals)
+
+
+def identify_bos_and_trend(data, fractals):
+    """
+    Определяет линии BOS и тренд на основе фракталов.
+    """
+    bos_lines = []
+    trend = None
+    last_high_fractal = None
+    last_low_fractal = None
+
+    for i, fractal in fractals.iterrows():
+        if fractal['Type'] == 'High':
+            last_high_fractal = fractal
+            last_low_fractal = None  # Сбрасываем последний Low фрактал
+        elif fractal['Type'] == 'Low':
+            last_low_fractal = fractal
+            last_high_fractal = None  # Сбрасываем последний High фрактал
+
+        # Проверяем, есть ли новый фрактал и нужно ли обновить линию BOS
+        if last_high_fractal is not None:
+            bos_lines.append({
+                'Type': 'High',
+                'Time': last_high_fractal['Time'],
+                'Price': last_high_fractal['Price'],
+                'Color': 'green'
+            })
+        elif last_low_fractal is not None:
+            bos_lines.append({
+                'Type': 'Low',
+                'Time': last_low_fractal['Time'],
+                'Price': last_low_fractal['Price'],
+                'Color': 'red'
+            })
+
+        # Проверяем, касается ли линия BOS тела другой свечи
+        for j in range(i + 1, len(data)):
+            if last_high_fractal is not None:
+                if data.iloc[j]['Low'] <= last_high_fractal['Price'] <= data.iloc[j]['High']:
+                    trend = 'Bullish'
+                    break
+            elif last_low_fractal is not None:
+                if data.iloc[j]['Low'] <= last_low_fractal['Price'] <= data.iloc[j]['High']:
+                    trend = 'Bearish'
+                    break
+
+    return bos_lines, trend

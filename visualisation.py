@@ -1,4 +1,6 @@
 import mplfinance as mpf
+import pandas as pd
+
 
 def visualize_with_fvgs_and_trades(data, fvgs, trades, instrument):
     """
@@ -63,11 +65,17 @@ def visualize_with_fvgs_and_trades(data, fvgs, trades, instrument):
 
     pass
 
+
 def visualize_with_fractals(data, fractals, instrument):
     """
-    Визуализирует данные свечей с отображением фракталов.
+    Визуализирует данные свечей с отображением фракталов и линий BOS.
     """
     try:
+        from analysis import identify_bos_and_trend
+
+        # Определяем линии BOS и тренд
+        bos_lines, trend = identify_bos_and_trend(data, fractals)
+
         # Формирование точек для фракталов
         addplots = []
         for _, fractal in fractals.iterrows():
@@ -81,6 +89,18 @@ def visualize_with_fractals(data, fractals, instrument):
                 mpf.make_addplot(fractal_y, scatter=True, markersize=50, marker=marker, color='black')
             )
 
+        # Формирование линий BOS
+        for bos_line in bos_lines:
+            time = bos_line['Time']
+            price = bos_line['Price']
+            color = bos_line['Color']
+
+            # Добавляем линии BOS
+            bos_y = [price if idx >= time else float('nan') for idx in data.index]
+            addplots.append(
+                mpf.make_addplot(bos_y, color=color, linestyle='--')
+            )
+
         # Настройка стиля графика
         mc = mpf.make_marketcolors(up='white', down='black', edge='black', wick='black', volume='inherit')
         style = mpf.make_mpf_style(base_mpf_style='yahoo', marketcolors=mc, rc={"axes.grid": False})
@@ -90,7 +110,7 @@ def visualize_with_fractals(data, fractals, instrument):
             data,
             type='candle',
             style=style,
-            title=f"{instrument} - Fractals",
+            title=f"{instrument} - Fractals and BOS",
             ylabel='Price',
             figratio=(16, 9),
             figscale=1.2,
@@ -102,6 +122,9 @@ def visualize_with_fractals(data, fractals, instrument):
         print("\nExplanation of markers:")
         print("v (black): Fractal High")
         print("^ (black): Fractal Low")
+        print("-- (green): BOS Line from High Fractal")
+        print("-- (red): BOS Line from Low Fractal")
+        print(f"Current Trend: {trend}")
 
     except Exception as e:
         print(f"Error during visualization: {e}")
